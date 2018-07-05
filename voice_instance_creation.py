@@ -1,4 +1,5 @@
 import boto3
+from asn1crypto._ffi import null
 
 instance_type = None
 rigion_name = None
@@ -65,23 +66,42 @@ def set_instance_type_in_session(intent, session):
     session_attributes = {}
     should_end_session = False
 
+    aws_instances_type = {
+      'micro': True,
+      'small': True,
+      'medium': True,
+      'nano': True,
+      'large': True,
+      'xlarge': True,
+      '2xlarge': True
+    }
+
     if 'TypeInstance' in intent['slots']:
         global instance_type
         instance_type = intent['slots']['TypeInstance']['value']
-        session_attributes = create_instance_type_attributes(instance_type)
-        speech_output = "Setting Instance Type as  " \
-                        + instance_type + "."\
-                        " In which region you want to deploy your instance ?"\
-                        "Example : us-east-1, us-west-1"
+        if aws_instances_type.get(instance_type, False):
+            instance_type = "t2.{0}".format(instance_type)
 
-        reprompt_text = "Can you tell me, In which region you want to deploy your instance ?" \
-                        + instance_type + \
-                        "."
+            session_attributes = create_instance_type_attributes(instance_type)
+            speech_output = "Setting Instance Type as  " \
+                            + instance_type + "."\
+                            " In which region you want to deploy your instance ?"\
+                            "Example : us-east-1, us-west-1"
+
+            reprompt_text = "Can you tell me, In which region you want to deploy your instance ?" \
+                            + instance_type + \
+                            "."
+        else:
+            speech_output = "I'm not sure about this Instance Type " \
+                        " Can you tell me, In which Instance Type you want for your instance ?"
+
+            reprompt_text = "Can you tell me, In which Instance Type you want for your instance ?"
+
     else:
         speech_output = "I'm not sure about this Instance Type " \
-                        " Can you tell me, In which region you want to deploy your instance ?"
+                        " Can you tell me, In which Instance Type you want for your instance ?"
 
-        reprompt_text = "Can you tell me, In which region you want to deploy your instance ? "
+        reprompt_text = "Can you tell me, In which Instance Type you want for your instance ?"
 
     return build_response(session_attributes, build_speechlet_response(
         card_title, speech_output, reprompt_text, should_end_session))
@@ -97,37 +117,51 @@ def set_region_name_in_session(intent, session):
     should_end_session = False
 
     if 'Region_Name' in intent['slots']:
+        aws_region = {
+            "Ohio": 'us-east-2',
+            "Virginia": 'us-east-1',
+            "California": "us-west-1",
+            "Oregon": "us-west-2",
+            "Mumbai": "ap-south-1",
+            "Singapore": "ap-southeast-1",
+            "Sydney": "ap-southeast-2"
+            }
         global region_name
-        region_name = intent['slots']['Region_Name']['value']
         session_attributes = create_region_name_attributes(region_name)
-        instancesIp = ec2_creator()
+        region_name = intent['slots']['Region_Name']['value']
+        region_name = aws_region.get(region_name, None)
+        if region_name is not None:
 
-        if instancesIp == "Error":
+            instancesIp = ec2_creator()
 
-            speech_output = "Thank you for providing all the information. " \
-                            " Let me check  your Instance's Status. "\
-    						" Meanwhile you can enjoy songs with Youtue."\
-                            " Unfortunately, There is some error in creating EC2 Instance. "\
-                            "Please retry after sometime."
+            if instancesIp == "Error":
 
-            reprompt_text = "Hey, " \
-                            " Let me check  your Instance's Status. "\
-    						" Meanwhile you can enjoy songs with Youtue."\
-                            " Unfortunately, There is some error in creating EC2 Instance. "\
-                            "Please retry after sometime."
+                speech_output = "Thank you for providing all the information. " \
+                                " Let me check  your Instance's Status. "\
+                                " Meanwhile you can enjoy songs with Youtue."\
+                                " Unfortunately, There is some error in creating EC2 Instance. "\
+                                "Please retry after sometime."
+                reprompt_text = "Hey, " \
+                                " Let me check  your Instance's Status. "\
+                                " Meanwhile you can enjoy songs with Youtue."\
+                                " Unfortunately, There is some error in creating EC2 Instance. "\
+                                "Please retry after sometime."
+            else:
 
+                speech_output = "Thank you for providing all the information. " \
+                                " Let me check  your Instance's Status. "\
+                                " Meanwhile you can enjoy songs with Youtue."\
+                                " Congratulations, Your EC2 Instance has been created successfully. "\
+                                "Your Instance IP is ." + instancesIp +" ."
+
+                reprompt_text = "Hey, " \
+                                " Congratulations, Your EC2 Instance has been created successfully. "\
+                                "Your Instance IP is ." + instancesIp +" ."
         else:
+            speech_output = "I'm not sure about this region name " \
+                        "Can you tell me the region name again? "
 
-            speech_output = "Thank you for providing all the information. " \
-                            " Let me check  your Instance's Status. "\
-    						" Meanwhile you can enjoy songs with Youtue."\
-                            " Congratulations, Your EC2 Instance has been created successfully. "\
-                            "Your Instance IP is ." + instancesIp +" ."
-
-            reprompt_text = "Hey, " \
-                            " Congratulations, Your EC2 Instance has been created successfully. "\
-                            "Your Instance IP is ." + instancesIp +" ."
-
+            reprompt_text =  "Can you repeat the region name again? "
 
     else:
         speech_output = "I'm not sure about this region name " \
